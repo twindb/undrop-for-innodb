@@ -169,7 +169,7 @@ unsigned lex_state = 0;
     return string_value; 
     }
 <NORMAL,COMMENT_c>[0-9]+    { yylval.si = strtoll(yytext, NULL, 10); return int_value; }
-<NORMAL,COMMENT_c>[ \t]   ;
+<NORMAL,COMMENT_c>[ \t\r]   ;
 <NORMAL,COMMENT_b,COMMENT_c>\n.*   { 
                 strncpy(linebuf_prev, linebuf, sizeof(linebuf_prev));
                 strncpy(linebuf, yytext+1, sizeof(linebuf));
