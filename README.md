@@ -2,6 +2,7 @@
 ## Supported Failures
 
 [![Join the chat at https://gitter.im/twindb/undrop-for-innodb](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/twindb/undrop-for-innodb?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 TwinDB Data Recovery Toolkit is a set of tools that operate with MySQL files at low level and allow to recover InnoDB databases after different failure scenarios.
 
 The toolkit is also known as **UnDrop for InnoDB**, which is more accurate name because the toolkit works with InnoDB tables.
