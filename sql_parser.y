@@ -71,7 +71,7 @@ void strip_bq(char*p){
     long long int si;
  }
 
-%token CREATE TABLE TEMPORARY IF_NOT_EXIST SQLNULL DEFAULT NOT
+%token CREATE TABLE TEMPORARY IF_NOT_EXISTS SQLNULL DEFAULT NOT
 %token COMMENT FULLTEXT SPATIAL CONSTRAINT
 %token INDEX KEY PRIMARY UNIQUE FOREIGN_KEY
 %token BIT TINYINT SMALLINT MEDIUMINT INT INTEGER BIGINT REAL DOUBLE FLOAT DECIMAL NUMERIC 
@@ -90,8 +90,9 @@ void strip_bq(char*p){
 %token DYNAMIC FIXED COMPRESSED REDUNDANT COMPACT
 %token <str>string_value 
 %token <str>entity_name
-%token <si>int_value 
+%token <si>int_value
 %token <si>bool_value
+%token <si>bit_value
 %token CURRENT_TIMESTAMP
 %token CHARSET
 %token REFERENCES
@@ -105,10 +106,10 @@ list_sql: sql_command
 sql_command: create_table ';' | ';';
 
 create_table: CREATE opt_temporary
-	TABLE opt_if_not_exist 
+	TABLE opt_if_not_exists
 	tbl_name {
         strip_bq(table_name);
-        if(debug) printf("Parsing sturcture of %s\n", table_name);
+        if(debug) printf("Parsing steucture of %s\n", table_name);
         table_definitions[0].name = strdup(table_name);
         }
     '(' list_create_definition ')' 
@@ -116,13 +117,25 @@ create_table: CREATE opt_temporary
         // if table_charset it utf8 or utf8mb
         // increste max_size of each VARCHAR or TEXT field
         unsigned int factor = 1;
-        if(strcmp(table_charset, "utf8") == 0) factor = 3;
-        if(strcmp(table_charset, "utf8mb4") == 0) factor = 4;
+        if(debug) printf("Table charset: %s\n", table_charset);
+        int is_variable = 0;
+        if(strcmp(table_charset, "utf8") == 0) {
+            factor = 3;
+            is_variable = 1;
+        }
+        if(strcmp(table_charset, "utf8mb4") == 0) {
+            factor = 4;
+            is_variable = 1;
+        }
         int i = 0;
         for(i = 0; i < field_number; i++){
             // If charset isn't set explicitely apply table-wide factor
-            if(all_fields[i].charset == NULL){
-                all_fields[i].fixed_length = all_fields[i].fixed_length * factor;
+            if(all_fields[i].type == FT_CHAR && all_fields[i].charset == NULL){
+                all_fields[i].max_length = all_fields[i].max_length * factor;
+                if (all_fields[i].fixed_length != 0 && is_variable) {
+                    all_fields[i].max_length = all_fields[i].fixed_length * factor;
+                    all_fields[i].fixed_length = 0;
+                    }
                 }
             }
         // generate table_defs based on all_fields
@@ -163,7 +176,7 @@ create_table: CREATE opt_temporary
                 }
             }
         // Add MVCC fields
-        field_def_t trx_id, roll_ptr, none;
+        field_def_t trx_id, roll_ptr;
         trx_id.name = strdup("DB_TRX_ID");
         trx_id.type = FT_INTERNAL;
         trx_id.can_be_null = 0;
@@ -183,8 +196,6 @@ create_table: CREATE opt_temporary
                 memcpy(table_definitions[0].fields + meta_i++, all_fields + i, sizeof(field_def_t));
                 }
             }
-        none.type = FT_NONE;
-        //memcpy(table_definitions[0].fields + meta_i++, &none, sizeof(field_def_t));
         i = 0;
         if(debug) printf("Table_defs %s\n", table_definitions[0].name);
         while(table_definitions[0].fields[i].name != NULL){
@@ -240,7 +251,7 @@ create_definition: col_name
         opt_default_clause
         opt_filter_list
         { field_number++; }
-	| opt_constraint opt_symbol PRIMARY KEY { 
+	| opt_constraint opt_symbol PRIMARY KEY opt_index_name {
             has_primary_key = 1; 
             is_primary_index = 1;
             } opt_index_type '(' list_index_col_name ')' {
@@ -281,7 +292,7 @@ filter_clause: CAN_BE_NULL ':' bool_value { all_fields[field_number].limits.can_
     | SET_VALUES ':' '(' list_values ')'
     | ENUM_VALUES_COUNT ':' int_value 
     | SET_VALUES_COUNT ':' int_value
-opt_if_not_exist: | IF_NOT_EXIST;
+opt_if_not_exists: | IF_NOT_EXISTS;
 
 opt_null_clause: | NOT SQLNULL { all_fields[field_number].can_be_null = 0; }  | SQLNULL;
 
@@ -490,6 +501,7 @@ data_type: BIT {
 
 	| CHAR { all_fields[field_number].type = FT_CHAR; } opt_length {
         all_fields[field_number].fixed_length = (is_length) ? length : 1;
+        if(debug) printf("CHAR type fixed length: %d\n", all_fields[field_number].fixed_length);
         } opt_charset_clause opt_collate_clause
 
 	| VARCHAR { all_fields[field_number].type = FT_CHAR; } length {
@@ -579,6 +591,7 @@ charset_clause: CHARACTER SET charset_value {
         if(strcmp($3, "utf8") == 0) factor = 3;
         if(strcmp($3, "utf8mb4") == 0) factor = 4;
         all_fields[field_number].fixed_length = all_fields[field_number].fixed_length * factor;
+        all_fields[field_number].max_length = all_fields[field_number].max_length * factor;
         };
 
 charset_value: string_value | entity_name;
@@ -610,8 +623,10 @@ table_option: ENGINE opt_equal entity_name
 	| TYPE opt_equal entity_name
 	| AUTO_INCREMENT opt_equal int_value
 	| AVG_ROW_LENGTH opt_equal int_value
-	| opt_default CHARACTER SET opt_equal entity_name
-	| opt_default CHARSET opt_equal entity_name
+	| opt_default CHARACTER SET opt_equal entity_name { strncpy(table_charset, $5, strlen($5)); }
+	| opt_default CHARACTER SET opt_equal BINARY { strncpy(table_charset, "binary", strlen("binary")); }
+	| opt_default CHARSET opt_equal entity_name { strncpy(table_charset, $4, strlen($4)); }
+	| opt_default CHARSET opt_equal BINARY { strncpy(table_charset, "binary", strlen("binary")); }
 	| CHECKSUM opt_equal one_zero_value
 	| opt_default COLLATE opt_equal entity_name
 	| COMMENT opt_equal string_value
@@ -649,7 +664,7 @@ tbl_name: entity_name { strncpy(table_name, $1, strlen($1)); }
 list_values: value { n_values++; }
 	| list_values ',' value { n_values++; };
 
-value: string_value | int_value | '\'' int_value '\'';
+value: string_value | int_value | '\'' int_value '\'' | bit_value;
 
 decimal_value: int_value '.' int_value |
                 '\'' int_value '.' int_value '\'';

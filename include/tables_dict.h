@@ -104,6 +104,6 @@ typedef struct table_def {
     extern int record_extra_bytes;
 #endif
 
-void init_table_defs();
+void init_table_defs(int);
 
 #endif

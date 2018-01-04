@@ -13,16 +13,15 @@ int record_extra_bytes;
 extern table_def_t table_definitions[1];
 extern bool deleted_pages_only;
 extern bool debug;
-extern bool process_compact, process_redundant;
 
 /*******************************************************************/
-void init_table_defs() {
+void init_table_defs(comp) {
 	int i, j;
 
 	if (debug) printf("Initializing table definitions...\n");
 	table_definitions_cnt = sizeof(table_definitions) / sizeof(table_def_t);
 	if (debug) printf("There are %d tables defined\n", table_definitions_cnt);
-    record_extra_bytes = (process_compact ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES);
+    record_extra_bytes = (comp ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES);
     
 	for (i = 0; i < table_definitions_cnt; i++) {
 		table_def_t *table = &(table_definitions[i]);

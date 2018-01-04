@@ -77,8 +77,8 @@ bool deleted_pages_only = 0;
 bool deleted_records_only = 0;
 bool undeleted_records_only = 1;
 bool debug = 0;
-bool process_redundant = 0;
-bool process_compact = 0;
+//bool process_redundant = 0;
+//bool process_compact = 0;
 bool process_56 = 0;
 char blob_dir[256] = ".";
 char dump_prefix[256] = "default";
@@ -98,6 +98,10 @@ inline void error(char *msg) {
   exit(1);
 }
 
+/* Recovery status counter */
+unsigned long records_expected_total = 0;
+unsigned long records_dumped_total = 0;
+int records_lost = 0;
 
 /*****************************************************************
  * Prints the contents of a memory buffer in hex and ascii. */
@@ -248,8 +252,12 @@ inline ibool check_fields_sizes(rec_t *rec, table_def_t *table, ulint *offsets) 
 	if (debug) {
 		printf("\nChecking field lengths for a row (%s): ", table->name);
 		printf("OFFSETS: ");
+		unsigned long int prev_offset = 0;
+		unsigned long int curr_offset = 0;
 		for(i = 0; i < rec_offs_n_fields(offsets); i++) {
-			printf("%lu ", rec_offs_base(offsets)[i]);
+			curr_offset = rec_offs_base(offsets)[i];
+			printf("%lu (+%lu); ", curr_offset, curr_offset - prev_offset);
+			prev_offset = curr_offset;
 		}
 //		printf("\n");
 	}
@@ -465,8 +473,9 @@ inline ibool check_for_a_record(page_t *page, rec_t *rec, table_def_t *table, ul
 	if (undeleted_records_only && flag != 0) return FALSE;
 	
     // Get field offsets for current table
-	if (process_compact && !ibrec_init_offsets_new(page, rec, table, offsets)) return FALSE;
-	if (process_redundant && !ibrec_init_offsets_old(page, rec, table, offsets)) return FALSE;
+    int comp = page_is_comp(page);
+	if (comp && !ibrec_init_offsets_new(page, rec, table, offsets)) return FALSE;
+	if (!comp && !ibrec_init_offsets_old(page, rec, table, offsets)) return FALSE;
 	if (debug) printf("OFFSETS=OK ");
 
 	// Check the record's data size
@@ -487,21 +496,6 @@ inline ibool check_for_a_record(page_t *page, rec_t *rec, table_def_t *table, ul
 	
 	// This record could be valid and useful for us
 	return TRUE;
-}
-
-/*******************************************************************/
-inline bool check_page_format(page_t *page) {
-	if (process_redundant && page_is_comp(page)) {
-		if (debug) printf("Page is in COMPACT format while we're looking for REDUNDANT - skipping\n");
-		return FALSE;
-	}
-
-	if (process_compact && !page_is_comp(page)) {
-		if (debug) printf("Page is in REDUNDANT format while we're looking for COMPACT - skipping\n");
-		return FALSE;
-	}
-	
-    return TRUE;
 }
 
 /*******************************************************************/
@@ -590,8 +584,7 @@ void process_ibpage(page_t *page) {
 	page_id = mach_read_from_4(page + FIL_PAGE_OFFSET);
 	if (debug) printf("Page id: %lu\n", page_id);
 	fprintf(f_result, "-- Page id: %lu", page_id);
-	// Check requested and actual formats
-    if (!check_page_format(page)) return;
+
 	if(table_definitions_cnt == 0){
 		fprintf(stderr, "There are no table definitions. Please check  include/table_defs.h\n");
 		exit(EXIT_FAILURE);
@@ -661,11 +654,21 @@ void process_ibpage(page_t *page) {
 			}
 		}
 	fflush(f_result);
+	int leaf_page = mach_read_from_2(page + PAGE_HEADER + PAGE_LEVEL) == 0;
+	int lost_records = (actual_records != expected_records) && (actual_records != expected_records_inheader);
 	fprintf(f_result, "-- Page id: %lu", page_id);
 	fprintf(f_result, ", Found records: %u", actual_records);
-	fprintf(f_result, ", Lost records: %s", (actual_records != expected_records) && (actual_records != expected_records_inheader) ? "YES": "NO");
-    	fprintf(f_result, ", Leaf page: %s", (mach_read_from_2(page + PAGE_HEADER + PAGE_LEVEL) == 0)? "YES": "NO");
+	fprintf(f_result, ", Lost records: %s", lost_records ? "YES": "NO");
+	fprintf(f_result, ", Leaf page: %s", leaf_page ? "YES": "NO");
 	fprintf(f_result, "\n");
+	if (leaf_page) {
+	    records_expected_total += expected_records_inheader;
+	    records_dumped_total += actual_records;
+	    if (lost_records) {
+	        records_lost = 1;
+	    }
+	}
+
 }
 
 /*******************************************************************/
@@ -681,8 +684,6 @@ void process_ibfile(int fn) {
         exit(EXIT_FAILURE);
         }
 
-	// Initialize table definitions (count nullable fields, data sizes, etc)
-	init_table_defs();
 
 	if (debug) printf("Read data from fn=%d...\n", fn);
 
@@ -703,10 +704,14 @@ void process_ibfile(int fn) {
     		if (free_offset > 0 && page_header_get_field(page, PAGE_GARBAGE) == 0) continue;
     		if (free_offset > UNIV_PAGE_SIZE) continue;
     	}
-        
+
+        // Initialize table definitions (count nullable fields, data sizes, etc)
+        init_table_defs(page_is_comp(page));
         process_ibpage(page);
+
 	}
 	free(page);
+
 }
 
 /*******************************************************************/
@@ -768,9 +773,9 @@ void usage() {
 int main(int argc, char **argv) {
 	int fn = 0, ch;
 	int is_dir = 0;
-	int table_loaded = 0;
 	struct stat st;
 	char src[256] = "";
+	char table_schema[256] = "";
 
 	char buffer[BUFSIZ];
         setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
@@ -810,11 +815,7 @@ int main(int argc, char **argv) {
                 }
                 break;
 			case 't':
-                if(load_table(optarg) != 0){
-                    fprintf(stderr, "Failed to parse table structure\n");
-                    exit(EXIT_FAILURE);
-                }
-                table_loaded = 1;
+			    strncpy(table_schema, optarg, sizeof(table_schema));
 				break;
 			case 'f':
 				strncpy(src, optarg, sizeof(src));
@@ -832,22 +833,18 @@ int main(int argc, char **argv) {
 			case 'V':
 				debug = 1;
 				break;
-            		case '4':
-                		process_redundant = 1;
-                		break;
-            		case '5':
-                		process_compact = 1;
-             	 		break;
-            		case '6':
-                		process_compact = 1;
-                		process_56 = 1;
-             	 		break;
-            		case 'T':
-                		set_filter_id(optarg);
-                		break;
-            		case 'b':
-                		strncpy(blob_dir, optarg, sizeof(blob_dir));
-                		break;
+            case '4':
+            case '5':
+                break;
+            case '6':
+                process_56 = 1;
+                break;
+            case 'T':
+                set_filter_id(optarg);
+                break;
+            case 'b':
+                strncpy(blob_dir, optarg, sizeof(blob_dir));
+                break;
 			case 'p':
 				strncpy(dump_prefix, optarg, sizeof(dump_prefix));
 				break;
@@ -860,9 +857,13 @@ int main(int argc, char **argv) {
     if(src[0] == 0){
         usage();
     }
-    if(table_loaded != 1){
+
+    if(load_table(table_schema) != 0){
+        fprintf(stderr, "Failed to parse table structure\n");
         usage();
+        exit(EXIT_FAILURE);
     }
+
 	if(is_dir){
 		DIR *src_dir;
 		char src_file[256];
@@ -947,10 +948,14 @@ int main(int argc, char **argv) {
 			}
 		}
 	fprintf(f_sql, ";\n");
+	fprintf(f_sql, "-- STATUS {\"records_expected\": %lu, \"records_dumped\": %lu, \"records_lost\": %s} STATUS END\n",
+	records_expected_total, records_dumped_total, records_lost ? "true": "false");
+
+	/*
 	if (!process_compact && !process_redundant) {
 	  fprintf(stderr,"Error: Please, specify what format your datafile in. Use -4 for mysql 4.1 and below and -5 for 5.X+\n");
 	  usage();
 	}
-	
+	*/
 	return 0;
 }

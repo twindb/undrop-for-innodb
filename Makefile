@@ -10,7 +10,7 @@ INSTALL ?=install
 YACC = bison
 LEX = flex
 
-CFLAGS += -D_FILE_OFFSET_BITS=64 -Wall -g -O3 -pipe 
+CFLAGS += -D_FILE_OFFSET_BITS=64 -Wall -g -O3 -pipe
 INSTALLFLAGS ?=-s
 CentOS5 = $(findstring .el5,$(shell cat /proc/version))
 ifeq ($(CentOS5), .el5)

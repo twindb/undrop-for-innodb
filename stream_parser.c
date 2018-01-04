@@ -88,10 +88,10 @@ inline int valid_innodb_checksum(page_t* p){
     int result = 0;
 
     // Checking old style checksums
-    oldcsum= buf_calc_page_old_checksum(p);
-    oldcsumfield= mach_read_from_4(p + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM);
+    oldcsum = buf_calc_page_old_checksum(p);
+    oldcsumfield = mach_read_from_4(p + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM);
 #ifdef STREAM_PARSER_DEBUG
-    DEBUG_LOG("Old checksum: calculated=%lu, stored=%lu", oldcsum, oldcsumfield);
+    DEBUG_LOG("Old checksum: calculated=%lu, crc32=%lu, stored=%lu", oldcsum, buf_calc_page_crc32(p), oldcsumfield);
 #endif
     if (oldcsumfield != oldcsum){
         result = 0;
@@ -129,16 +129,17 @@ inline int valid_blob_page(page_t* page){
     uint32_t page_id = mach_read_from_4(page + FIL_PAGE_OFFSET);
     if(page_id > max_page_id || page_id == 0){
 #ifdef STREAM_PARSER_DEBUG
-        DEBUG_LOG("Wrong page id %u", page_id);
+        DEBUG_LOG("Wrong page id %u. Maximum page_ud %u", page_id, max_page_id);
 #endif
-        return 0;
+        // ignore temporarly
+        // return 0;
         }
     uint32_t next_page = mach_read_from_4(blob_header + 4 /*BTR_BLOB_HDR_NEXT_PAGE_NO*/);
     if(next_page != 0xFFFFFFFF && (next_page > max_page_id || next_page == 0)){
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("Wrong next page_id = %u", next_page);
 #endif
-        return 0;
+        // return 0;
         }
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("All criterias are good. Checking checksum");
@@ -148,7 +149,8 @@ inline int valid_blob_page(page_t* page){
 }
 inline int valid_innodb_page(page_t* page, uint64_t block_size, off64_t* step){
     int version = 0; // 1 - new, 0 - old
-    unsigned int page_n_heap, oldcsumfield;
+    unsigned int page_n_heap;
+
     int inf_offset = 0, sup_offset = 0;
     uint32_t page_id = 0;
 
@@ -159,6 +161,9 @@ inline int valid_innodb_page(page_t* page, uint64_t block_size, off64_t* step){
     *step = 1;
 
 #ifdef STREAM_PARSER_DEBUG
+    unsigned int oldcsumfield;
+    oldcsumfield = mach_read_from_4(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM);
+
     DEBUG_LOG("Fil Header");
     DEBUG_LOG("\tFIL_PAGE_SPACE:                   %08lX", mach_read_from_4(page + FIL_PAGE_SPACE_OR_CHKSUM));
     DEBUG_LOG("\tFIL_PAGE_OFFSET:                  %08lX", mach_read_from_4(page + FIL_PAGE_OFFSET));
@@ -170,7 +175,7 @@ inline int valid_innodb_page(page_t* page, uint64_t block_size, off64_t* step){
     DEBUG_LOG("\tFIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID: %08lX", mach_read_from_4(page + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID));
     DEBUG_LOG("\tFIL_PAGE_END_LSN_OLD_CHKSUM:      %08X", oldcsumfield);
 #endif
-    oldcsumfield = mach_read_from_4(page + UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM);
+
     if(mach_read_from_4(page) == 0){
         uint32_t i = 0;
         while(page[i] == 0){
@@ -310,9 +315,9 @@ inline void process_ibpage(page_t* page){
         flags = O_WRONLY | O_CREAT ;
         flags = O_WRONLY | O_CREAT | O_APPEND;
         }
-    int sem = (page_type == FIL_PAGE_INDEX) 
-            ? sem_wait(index_mutex + (index_id % mutext_pool_size))
-            : sem_wait(blob_mutex + (page_id % mutext_pool_size));
+    //int sem = (page_type == FIL_PAGE_INDEX)
+    //        ? sem_wait(index_mutex + (index_id % mutext_pool_size))
+    //        : sem_wait(blob_mutex + (page_id % mutext_pool_size));
     fn = open(file_name, flags, 0644);
     if (!fn) error("Can't open file to save page!");
     if(-1 == write(fn, page, UNIV_PAGE_SIZE)){
@@ -320,9 +325,9 @@ inline void process_ibpage(page_t* page){
         exit(EXIT_FAILURE);
         }
     close(fn);
-    sem = (page_type == FIL_PAGE_INDEX) 
-            ? sem_post(index_mutex + (index_id % mutext_pool_size))
-            : sem_post(blob_mutex + (page_id % mutext_pool_size));
+    //sem = (page_type == FIL_PAGE_INDEX)
+    //        ? sem_post(index_mutex + (index_id % mutext_pool_size))
+    //        : sem_post(blob_mutex + (page_id % mutext_pool_size));
     return;
     }
 void process_ibfile(int fn, off64_t start_offset, ssize_t length){
@@ -330,7 +335,7 @@ void process_ibfile(int fn, off64_t start_offset, ssize_t length){
     cache = malloc(cache_size);
     ssize_t disk_read;
     off64_t curr_disk_offset = 0;
-    off64_t prev_disk_offset = 0;
+    // off64_t prev_disk_offset = 0;
     off64_t global_offset = 0;
     
     if (!cache){
@@ -416,7 +421,7 @@ void process_ibfile(int fn, off64_t start_offset, ssize_t length){
         DEBUG_LOG("curr_disk_offset = %llu, start_offset = %llu", curr_disk_offset, start_offset);
 #endif
         show_progress(curr_disk_offset - start_offset, length);
-        prev_disk_offset = curr_disk_offset;
+        // prev_disk_offset = curr_disk_offset;
         curr_disk_offset = lseek64(fn, 0, SEEK_CUR);
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("Disk offset at the end of read cycle %llu", curr_disk_offset);
