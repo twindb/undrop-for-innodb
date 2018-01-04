@@ -74,10 +74,10 @@ void strip_bq(char*p){
 %token CREATE TABLE TEMPORARY IF_NOT_EXISTS SQLNULL DEFAULT NOT
 %token COMMENT FULLTEXT SPATIAL CONSTRAINT
 %token INDEX KEY PRIMARY UNIQUE FOREIGN_KEY
-%token BIT TINYINT SMALLINT MEDIUMINT INT INTEGER BIGINT REAL DOUBLE FLOAT DECIMAL NUMERIC 
-%token DATE TIME TIMESTAMP DATETIME YEAR 
+%token BIT TINYINT SMALLINT MEDIUMINT INT INTEGER BIGINT REAL DOUBLE FLOAT DECIMAL NUMERIC
+%token DATE TIME TIMESTAMP DATETIME YEAR
 %token CHAR VARCHAR TINYTEXT TEXT MEDIUMTEXT LONGTEXT
-%token BINARY VARBINARY TINYBLOB BLOB MEDIUMBLOB LONGBLOB 
+%token BINARY VARBINARY TINYBLOB BLOB MEDIUMBLOB LONGBLOB
 %token ENUM SET
 %token GEOMETRY POINT LINESTRING POLYGON MULTIPOINT MULTILINESTRING MULTIPOLYGON GEOMETRYCOLLECTION
 %token UNSIGNED ZEROFILL
@@ -88,7 +88,7 @@ void strip_bq(char*p){
 %token ENGINE TYPE AUTO_INCREMENT AVG_ROW_LENGTH CHECKSUM CHARACTER COLLATE CONNECTION DATA DIRECTORY DELAY_KEY_WRITE INSERT_METHOD MAX_ROWS MIN_ROWS PACK_KEYS PASSWORD ROW_FORMAT UNION
 %token FIRST LAST
 %token DYNAMIC FIXED COMPRESSED REDUNDANT COMPACT
-%token <str>string_value 
+%token <str>string_value
 %token <str>entity_name
 %token <si>int_value
 %token <si>bool_value
@@ -109,10 +109,10 @@ create_table: CREATE opt_temporary
 	TABLE opt_if_not_exists
 	tbl_name {
         strip_bq(table_name);
-        if(debug) printf("Parsing steucture of %s\n", table_name);
+        if(debug) printf("Parsing structure of %s\n", table_name);
         table_definitions[0].name = strdup(table_name);
         }
-    '(' list_create_definition ')' 
+    '(' list_create_definition ')'
 	opt_list_table_option {
         // if table_charset it utf8 or utf8mb
         // increste max_size of each VARCHAR or TEXT field
@@ -162,7 +162,7 @@ create_table: CREATE opt_temporary
                     memcpy(table_definitions[0].fields + meta_i, fld, sizeof(field_def_t));
                     meta_i++;
                     }
-                
+
                 }
             else{
                 if(debug) printf("Has primary: %d\n", has_primary_key);
@@ -224,7 +224,7 @@ list_create_definition: create_definition
 	| list_create_definition  ',' create_definition
 	;
 
-create_definition: col_name 
+create_definition: col_name
         {
             // Reset floags
             is_length = 0;
@@ -238,10 +238,10 @@ create_definition: col_name
             all_fields[field_number].min_length = 0;
             all_fields[field_number].can_be_null = 1;
             }
-        column_definition opt_onupdate_clause 
-        { 
-            if(debug) printf("all_fields[%d].name  = %s, type: %d, size: %u\n", 
-                    field_number, 
+        column_definition opt_onupdate_clause
+        {
+            if(debug) printf("all_fields[%d].name  = %s, type: %d, size: %u\n",
+                    field_number,
                     all_fields[field_number].name,
                     all_fields[field_number].type,
                     all_fields[field_number].fixed_length);
@@ -252,7 +252,7 @@ create_definition: col_name
         opt_filter_list
         { field_number++; }
 	| opt_constraint opt_symbol PRIMARY KEY opt_index_name {
-            has_primary_key = 1; 
+            has_primary_key = 1;
             is_primary_index = 1;
             } opt_index_type '(' list_index_col_name ')' {
             is_primary_index = 0; } opt_index_type
@@ -279,7 +279,7 @@ filter_clause: CAN_BE_NULL ':' bool_value { all_fields[field_number].limits.can_
     | INT_MIN_VAL ':' int_value { all_fields[field_number].limits.int_min_val = $3;
                                   all_fields[field_number].limits.uint_min_val = $3;
                                 }
-    | INT_MAX_VAL ':' int_value { all_fields[field_number].limits.int_max_val = $3; 
+    | INT_MAX_VAL ':' int_value { all_fields[field_number].limits.int_max_val = $3;
                                   all_fields[field_number].limits.uint_max_val = $3;
                                 }
     | CHAR_MIN_LEN ':' int_value { all_fields[field_number].limits.char_min_len = $3; }
@@ -290,7 +290,7 @@ filter_clause: CAN_BE_NULL ':' bool_value { all_fields[field_number].limits.can_
     | DATE_VALIDATION ':' bool_value { all_fields[field_number].limits.date_validation = $3; }
     | ENUM_VALUES ':' '(' list_values ')'
     | SET_VALUES ':' '(' list_values ')'
-    | ENUM_VALUES_COUNT ':' int_value 
+    | ENUM_VALUES_COUNT ':' int_value
     | SET_VALUES_COUNT ':' int_value
 opt_if_not_exists: | IF_NOT_EXISTS;
 
@@ -298,7 +298,7 @@ opt_null_clause: | NOT SQLNULL { all_fields[field_number].can_be_null = 0; }  | 
 
 opt_default_clause: | DEFAULT value | DEFAULT decimal_value | DEFAULT SQLNULL | DEFAULT CURRENT_TIMESTAMP;
 
-opt_auto_increment: | AUTO_INCREMENT; 
+opt_auto_increment: | AUTO_INCREMENT;
 
 opt_key_clause: | UNIQUE opt_key {
         has_unique_key = 1;
@@ -310,7 +310,7 @@ opt_key_clause: | UNIQUE opt_key {
 
 opt_key: | KEY;
 
-opt_primary: | PRIMARY { 
+opt_primary: | PRIMARY {
         has_primary_key = 1;
         memcpy(pk_fields + pk_field_number, all_fields + field_number, sizeof(field_def_t));
         pk_field_number++;
@@ -354,11 +354,11 @@ list_index_col_name: col_name {
         } opt_length opt_asc
 	;
 
-col_name: entity_name { 
-                memset(column_name, 0, sizeof(column_name)); 
-                strncpy(column_name, $1, strlen($1)); } 
-        | '`' entity_name { 
-                memset(column_name, 0, sizeof(column_name)); 
+col_name: entity_name {
+                memset(column_name, 0, sizeof(column_name));
+                strncpy(column_name, $1, strlen($1)); }
+        | '`' entity_name {
+                memset(column_name, 0, sizeof(column_name));
                 strncpy(column_name, $2, strlen($2)); } '`';
 
 opt_list_table_option: | list_table_option;
@@ -367,95 +367,95 @@ list_table_option: table_option
 	| list_table_option table_option
 	;
 
-data_type: BIT { 
-        all_fields[field_number].type = FT_BIT; 
+data_type: BIT {
+        all_fields[field_number].type = FT_BIT;
         all_fields[field_number].fixed_length = 1;
         } opt_length {
         if(is_length){
             all_fields[field_number].fixed_length = floor((length + 7 ) / 8);
             }
         }
-	| TINYINT { 
-        all_fields[field_number].type = FT_INT; 
+	| TINYINT {
+        all_fields[field_number].type = FT_INT;
         all_fields[field_number].fixed_length = 1;
-        all_fields[field_number].limits.int_min_val = -127; 
-        all_fields[field_number].limits.int_max_val = 127; 
+        all_fields[field_number].limits.int_min_val = -127;
+        all_fields[field_number].limits.int_max_val = 127;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 255; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 255;
             }
         }opt_zero_fill
-	| SMALLINT { 
+	| SMALLINT {
         all_fields[field_number].type = FT_INT;
-        all_fields[field_number].fixed_length = 2; 
-        all_fields[field_number].limits.int_min_val = -32768; 
-        all_fields[field_number].limits.int_max_val = 32767; 
+        all_fields[field_number].fixed_length = 2;
+        all_fields[field_number].limits.int_min_val = -32768;
+        all_fields[field_number].limits.int_max_val = 32767;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 65535; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 65535;
             }
         } opt_zero_fill
-	| MEDIUMINT { 
-        all_fields[field_number].type = FT_INT; 
+	| MEDIUMINT {
+        all_fields[field_number].type = FT_INT;
         all_fields[field_number].fixed_length = 3;
-        all_fields[field_number].limits.int_min_val = -8388608L; 
-        all_fields[field_number].limits.int_max_val = 8388607L; 
+        all_fields[field_number].limits.int_min_val = -8388608L;
+        all_fields[field_number].limits.int_max_val = 8388607L;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 16777215UL; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 16777215UL;
             }
         } opt_zero_fill
-	| INT { 
-        all_fields[field_number].type = FT_INT; 
+	| INT {
+        all_fields[field_number].type = FT_INT;
         all_fields[field_number].fixed_length = 4;
-        all_fields[field_number].limits.int_min_val = -2147483648LL; 
-        all_fields[field_number].limits.int_max_val = 2147483647LL; 
+        all_fields[field_number].limits.int_min_val = -2147483648LL;
+        all_fields[field_number].limits.int_max_val = 2147483647LL;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 4294967295ULL; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 4294967295ULL;
             }
         } opt_zero_fill
-	| INTEGER { 
-        all_fields[field_number].type = FT_INT; 
+	| INTEGER {
+        all_fields[field_number].type = FT_INT;
         all_fields[field_number].fixed_length = 4;
-        all_fields[field_number].limits.int_min_val = -2147483648LL; 
-        all_fields[field_number].limits.int_max_val = 2147483647LL; 
+        all_fields[field_number].limits.int_min_val = -2147483648LL;
+        all_fields[field_number].limits.int_max_val = 2147483647LL;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 4294967295ULL; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 4294967295ULL;
             }
         } opt_zero_fill
-	| BIGINT { 
+	| BIGINT {
         all_fields[field_number].type = FT_INT;
         all_fields[field_number].fixed_length = 8;
-        all_fields[field_number].limits.int_min_val = -9223372036854775806LL; 
-        all_fields[field_number].limits.int_max_val = 9223372036854775807LL; 
+        all_fields[field_number].limits.int_min_val = -9223372036854775806LL;
+        all_fields[field_number].limits.int_max_val = 9223372036854775807LL;
         } opt_length opt_unsigned {
         if(is_unsigned){
             all_fields[field_number].type = FT_UINT;
-            all_fields[field_number].limits.uint_min_val = 0; 
-            all_fields[field_number].limits.uint_max_val = 18446744073709551615ULL; 
+            all_fields[field_number].limits.uint_min_val = 0;
+            all_fields[field_number].limits.uint_max_val = 18446744073709551615ULL;
             }
         } opt_zero_fill
-	| REAL { all_fields[field_number].type = FT_FLOAT; 
+	| REAL { all_fields[field_number].type = FT_FLOAT;
         all_fields[field_number].fixed_length = 4;
         } opt_float_length opt_unsigned opt_zero_fill
-	| DOUBLE { 
-        all_fields[field_number].type = FT_DOUBLE; 
+	| DOUBLE {
+        all_fields[field_number].type = FT_DOUBLE;
         all_fields[field_number].fixed_length = 8;
         } opt_float_length opt_unsigned opt_zero_fill
-	| FLOAT { 
-        all_fields[field_number].type = FT_FLOAT; 
+	| FLOAT {
+        all_fields[field_number].type = FT_FLOAT;
         all_fields[field_number].fixed_length = 4;
         } opt_float_length opt_unsigned opt_zero_fill
 	| decimal_type { all_fields[field_number].type = FT_DECIMAL ; } opt_length_opt_decimal {
@@ -466,27 +466,27 @@ data_type: BIT {
             all_fields[field_number].decimal_digits = decimals;
             }
         } opt_unsigned opt_zero_fill
-	| DATE { 
-        all_fields[field_number].type = FT_DATE; 
+	| DATE {
+        all_fields[field_number].type = FT_DATE;
         all_fields[field_number].fixed_length = 3;
         }
-	| TIME { 
-        all_fields[field_number].type = FT_TIME; 
+	| TIME {
+        all_fields[field_number].type = FT_TIME;
         all_fields[field_number].fixed_length = 3;
         } opt_length{
         if(is_length){
             all_fields[field_number].fixed_length = 3 + ceil(length/2.0);
             }
         }
-	| TIMESTAMP { 
-        all_fields[field_number].type = FT_TIMESTAMP; 
+	| TIMESTAMP {
+        all_fields[field_number].type = FT_TIMESTAMP;
         all_fields[field_number].fixed_length = 4;
         } opt_length{
         if(is_length){
             all_fields[field_number].fixed_length = 4 + ceil(length/2.0);
             }
         }
-	| DATETIME { 
+	| DATETIME {
         all_fields[field_number].type = FT_DATETIME;
         all_fields[field_number].fixed_length = (process_56) ? 5: 8;
         } opt_length {
@@ -494,8 +494,8 @@ data_type: BIT {
             all_fields[field_number].fixed_length = 5 + ceil(length/2.0);
             }
         }
-	| YEAR { 
-        all_fields[field_number].type = FT_YEAR; 
+	| YEAR {
+        all_fields[field_number].type = FT_YEAR;
         all_fields[field_number].fixed_length = 1;
         } opt_length
 
@@ -508,7 +508,7 @@ data_type: BIT {
         all_fields[field_number].max_length = length;
         } opt_charset_clause opt_collate_clause
 
-	| BINARY { 
+	| BINARY {
         all_fields[field_number].type = FT_BIN; } opt_length {
         if(is_length){
             all_fields[field_number].fixed_length = length;
@@ -517,37 +517,37 @@ data_type: BIT {
 
 	| VARBINARY { all_fields[field_number].type = FT_BIN; } length { all_fields[field_number].max_length = length;}
 
-	| TINYBLOB { 
-        all_fields[field_number].type = FT_BLOB; 
+	| TINYBLOB {
+        all_fields[field_number].type = FT_BLOB;
         all_fields[field_number].max_length = 255;
         }
 
-	| BLOB { 
-        all_fields[field_number].type = FT_BLOB; 
+	| BLOB {
+        all_fields[field_number].type = FT_BLOB;
         all_fields[field_number].max_length = 65535;
         }
-	| MEDIUMBLOB { 
-        all_fields[field_number].type = FT_BLOB; 
+	| MEDIUMBLOB {
+        all_fields[field_number].type = FT_BLOB;
         all_fields[field_number].max_length = 16777215;
         }
-	| LONGBLOB { 
-        all_fields[field_number].type = FT_BLOB; 
+	| LONGBLOB {
+        all_fields[field_number].type = FT_BLOB;
         all_fields[field_number].max_length = 4294967295;
         }
-	| TINYTEXT { 
-        all_fields[field_number].type = FT_TEXT; 
+	| TINYTEXT {
+        all_fields[field_number].type = FT_TEXT;
         all_fields[field_number].max_length = 255;
         } opt_binary opt_charset_clause opt_collate_clause
-	| TEXT { 
+	| TEXT {
         all_fields[field_number].type = FT_TEXT;
-        all_fields[field_number].max_length = 65535; 
+        all_fields[field_number].max_length = 65535;
         } opt_binary opt_charset_clause opt_collate_clause
-	| MEDIUMTEXT { 
-        all_fields[field_number].type = FT_TEXT; 
+	| MEDIUMTEXT {
+        all_fields[field_number].type = FT_TEXT;
         all_fields[field_number].max_length = 16777215;
         } opt_binary opt_charset_clause opt_collate_clause
-	| LONGTEXT { 
-        all_fields[field_number].type = FT_TEXT; 
+	| LONGTEXT {
+        all_fields[field_number].type = FT_TEXT;
         all_fields[field_number].max_length = 4294967295;
         } opt_binary opt_charset_clause opt_collate_clause
 	| ENUM { all_fields[field_number].type = FT_ENUM; } '(' list_values ')' {
@@ -563,7 +563,7 @@ data_type: BIT {
 	| POLYGON { error("Unsupported type POLYGON"); }
 	| MULTIPOINT { error("Unsupported type MULTIPOINT"); }
 	| MULTILINESTRING { error("Unsupported type MULTILINESTRING"); }
-	| MULTIPOLYGON { error("Unsupported type MULTIPOLYGON"); } 
+	| MULTIPOLYGON { error("Unsupported type MULTIPOLYGON"); }
 	| GEOMETRYCOLLECTION { error("Unsupported type GEOMETRYCOLLECTION"); }
 	;
 
@@ -658,8 +658,8 @@ row_format_value: DEFAULT|DYNAMIC|FIXED|COMPRESSED|REDUNDANT|COMPACT;
 list_tbl_name: tbl_name
 	| list_tbl_name tbl_name;
 
-tbl_name: entity_name { strncpy(table_name, $1, strlen($1)); } 
-        | '`' entity_name { strncpy(table_name, $2, strlen($2)); } '`'; 
+tbl_name: entity_name { strncpy(table_name, $1, strlen($1)); }
+        | '`' entity_name { strncpy(table_name, $2, strlen($2)); } '`';
 
 list_values: value { n_values++; }
 	| list_values ',' value { n_values++; };
@@ -698,7 +698,7 @@ int load_table(char* f){
         exit(EXIT_FAILURE);
         }
     rewind(yyin);
-    return yyparse();    
+    return yyparse();
 }
 
 //int main(int argc, char** argv){

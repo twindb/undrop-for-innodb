@@ -47,7 +47,7 @@ typedef struct field_limits {
 // Table definition types
 typedef enum field_type {
 	FT_NONE,		// dummy type for stop records
-	FT_INTERNAL,		// supported
+	FT_INTERNAL,	// supported
 	FT_CHAR,		// supported
 	FT_INT,			// supported
 	FT_UINT,		// supported
@@ -55,16 +55,16 @@ typedef enum field_type {
 	FT_DOUBLE,		// supported
 	FT_DATE,		// supported
 	FT_TIME,		// supported
-	FT_DATETIME,		// supported
+	FT_DATETIME,	// supported
 	FT_ENUM,		// supported
 	FT_SET,			// supported
 	FT_BLOB,		// supported
 	FT_TEXT,		// supported
 	FT_BIT,			// supported
 	FT_DECIMAL,		// supported
-	FT_TIMESTAMP,		// supported
+	FT_TIMESTAMP,	// supported
 	FT_YEAR,		// supported
-	FT_BIN                  // supported
+	FT_BIN			// supported
 } field_type_t;
 
 typedef struct field_def {

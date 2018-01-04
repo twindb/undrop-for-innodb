@@ -118,7 +118,7 @@ inline int valid_blob_page(page_t* page){
 #endif
         return 0;
         }
-    page_t* blob_header = page + FIL_PAGE_DATA; 
+    page_t* blob_header = page + FIL_PAGE_DATA;
     uint32_t part_len = mach_read_from_4(blob_header + 0 /*BTR_BLOB_HDR_PART_LEN*/);
     if(part_len > UNIV_PAGE_SIZE){
 #ifdef STREAM_PARSER_DEBUG
@@ -131,7 +131,7 @@ inline int valid_blob_page(page_t* page){
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("Wrong page id %u. Maximum page_ud %u", page_id, max_page_id);
 #endif
-        // ignore temporarly
+        // ignore temporarily
         // return 0;
         }
     uint32_t next_page = mach_read_from_4(blob_header + 4 /*BTR_BLOB_HDR_NEXT_PAGE_NO*/);
@@ -223,17 +223,17 @@ inline int valid_innodb_page(page_t* page, uint64_t block_size, off64_t* step){
         }
     if(page[inf_offset + 0] != 'i'
             || page[inf_offset + 1] != 'n'
-            || page[inf_offset + 2] != 'f' 
-            || page[inf_offset + 3] != 'i' 
-            || page[inf_offset + 4] != 'm' 
-            || page[inf_offset + 5] != 'u' 
+            || page[inf_offset + 2] != 'f'
+            || page[inf_offset + 3] != 'i'
+            || page[inf_offset + 4] != 'm'
+            || page[inf_offset + 5] != 'u'
             || page[inf_offset + 6] != 'm'){
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("infimum record is not found");
 #endif
         goto invalid_innodb_page_exit;
         }
-    
+
     if(page[sup_offset + 0] != 's'
             || page[sup_offset + 1] != 'u'
             || page[sup_offset + 2] != 'p'
@@ -289,7 +289,7 @@ void show_progress(off64_t offset, off64_t length){
     //if(worker == 3)fprintf(stderr, "Worker(%d): %.2f%% done. %s ETA(in %02lu:%02lu:%02lu). Processing speed: %s/sec\n",
     fprintf(stderr, "Worker(%d): %.2f%% done. %s ETA(in %02lu:%02lu:%02lu). Processing speed: %s/sec\n",
             worker,
-            100.0 * offset / length, 
+            100.0 * offset / length,
             buf, h, m, s,
             h_size(processing_rate, tmp)
             );
@@ -337,7 +337,7 @@ void process_ibfile(int fn, off64_t start_offset, ssize_t length){
     off64_t curr_disk_offset = 0;
     // off64_t prev_disk_offset = 0;
     off64_t global_offset = 0;
-    
+
     if (!cache){
         char tmp[20];
         fprintf(stderr, "Can't allocate memory (%s) for disk cache\n", h_size(cache_size, tmp));
@@ -352,7 +352,7 @@ void process_ibfile(int fn, off64_t start_offset, ssize_t length){
     ssize_t curr_cache_offset = 0;
     // Read pages to the end of file
     curr_disk_offset = lseek64(fn, start_offset, SEEK_SET);
-    while ((curr_disk_offset - start_offset) < length){ // Stop reads when we have read length bytes 
+    while ((curr_disk_offset - start_offset) < length){ // Stop reads when we have read length bytes
 #ifdef STREAM_PARSER_DEBUG
         DEBUG_LOG("Reading from offset %lu", curr_disk_offset);
         DEBUG_LOG("cache_size = %lu", cache_size);
@@ -412,7 +412,7 @@ void process_ibfile(int fn, off64_t start_offset, ssize_t length){
             curr_cache_offset = bytes_in_cache - curr_cache_offset;
             }
         else{
-            // 
+            //
             curr_cache_offset = 0;
             }
         // EOF processing cache
@@ -437,7 +437,7 @@ int open_ibfile(char *fname){
 
     fprintf(stderr, "Opening file: %s\n", fname);
     fprintf(stderr, "File information:\n\n");
-       
+
     if(stat(fname, &st) != 0) {
         printf("Errno = %d, Error = %s\n", errno, strerror(errno));
         exit(EXIT_FAILURE);
@@ -484,7 +484,7 @@ int open_ibfile(char *fname){
         }
     fprintf(stderr, "Size to process:              %12lu (%s)\n", ib_size, h_size(ib_size, buf));
     max_page_id = ib_size/UNIV_PAGE_SIZE;
-       
+
     return fn;
 }
 
@@ -612,13 +612,13 @@ int main(int argc, char **argv) {
         error("PID cache allocation failed");
         }
     //ncpu = 1;
-    time_t a,b; 
+    time_t a,b;
     time(&a);
     for(n = 0; n < ncpu; n++){
         pid_t pid = fork();
         //pid_t pid = 0;
         if(pid == 0){
-            
+
             fn = open_ibfile(ibfile);
             if (fn == 0) {
                 fprintf(stderr, "Can not open file %s\n", ibfile);
