@@ -1,0 +1,72 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+nodes = [
+    { :hostname   => 'master1',
+      :box        => 'bento/centos-7.3',
+      :ram        => 3072
+    }]
+# Vagrantfile API/syntax version. Don't touch unless you know what you're doing!
+VAGRANTFILE_API_VERSION = '2'
+
+$script = <<SCRIPT
+
+interface=enp0s3
+if [[ $(cat /sys/class/net/${interface}/operstate) != 'up' ]]; then
+    service network restart
+fi
+
+function install_package() {
+
+    yum clean all
+
+    for i in 1 2 3
+    do
+        yum -y install $1 && break
+    done
+}
+
+function install_puppet(){
+
+    rpm -Uvh https://yum.puppetlabs.com/puppetlabs-release-pc1-el-7.noarch.rpm
+    install_package puppet
+
+}
+
+which puppet || install_puppet
+
+SCRIPT
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+    nodes.each do |node|
+        config.vm.define node[:hostname] do |nodeconfig|
+            nodeconfig.vm.box = node[:box]
+            nodeconfig.vm.hostname = node[:hostname]
+
+            if node[:ip]
+                nodeconfig.vm.network :private_network, ip: node[:ip]
+            end
+
+            if node[:mysql_port]
+                nodeconfig.vm.network :forwarded_port, host: node[:mysql_port], guest: 3306
+            end
+
+            memory = node[:ram] ? node[:ram] : 256
+            nodeconfig.vm.provider :virtualbox do |vb|
+                vb.customize [
+                                 'modifyvm', :id,
+                                 '--cpuexecutioncap', '40',
+                                 '--memory', memory.to_s,
+                             ]
+
+            end
+        end
+        config.vm.synced_folder '..', '/undrop-for-innodb'
+    end
+
+    config.vm.box_check_update = false
+    config.vm.provision 'shell', inline: $script
+    config.vm.provision :puppet do |puppet|
+        puppet.environment_path = 'environment'
+        puppet.environment = 'puppet'
+    end
+end

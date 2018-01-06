@@ -1,6 +1,6 @@
 %option noyywrap
 %option case-insensitive
-%s COMMENT_a COMMENT_b COMMENT_c NORMAL
+%s COMMENT_a COMMENT_b COMMENT_c NORMAL QUOTED
 
 comstart_a "--"
 comstop_a "\n"
@@ -11,11 +11,21 @@ comstop_b "*/"
 comstart_c "/*!FILTER"
 comstop_c "*/"
 
+ASCII_1 [0-9a-zA-Z$_]
+/* All ASCII chars w/o a '`' which is used to enclose entity names */
+ASCII_2 [\x01-\x09\x0b-\x59\x61-\x7f]
+
+U_HIGH [\x00-\xFF]
+U_LOW  [\x80-\xFF]
+
+U_FULL {U_HIGH}{U_LOW}
+
 %{
 unsigned int lineno = 1;
 char linebuf_prev[1024] = "";
 char linebuf[1024];
 unsigned lex_state = 0;
+unsigned old_lex_state = 0;
 %}
 %%
     { if(lex_state == 0) BEGIN NORMAL; else BEGIN lex_state; }
@@ -52,15 +62,24 @@ unsigned lex_state = 0;
 
 <COMMENT_c>{comstop_c}  { lex_state = 0; BEGIN 0; BEGIN NORMAL; }
 
-<NORMAL>`[[_a-zA-Z]+[-_a-zA-Z0-9]*]*`   {
-    memset(yylval.str, 0, sizeof(yylval.str)); 
-    strncpy(yylval.str, yytext, strlen(yytext)) ; 
-    return entity_name; 
+
+<NORMAL>`({ASCII_1}|{ASCII_2}|{U_FULL})+`   {
+    memset(yylval.str, 0, sizeof(yylval.str));
+    strncpy(yylval.str, yytext, strlen(yytext)) ;
+    return entity_name;
+    }
+
+
+<NORMAL>0*b'[0-1]+'    {
+    //yylval.si = strtoll(strstr(yytext, '\'') + 1, NULL, 2);
+    // aleks: I don't expect the BIT value will be ever needed. Won't implement it for now
+    yylval.si = 0;
+    return bit_value;
     }
 <NORMAL>"CREATE"    { return CREATE; }
 <NORMAL>"TABLE"    { return TABLE; }
 <NORMAL>"TEMPORARY"    { return TEMPORARY; }
-<NORMAL>"IF NOT EXIST"    { return IF_NOT_EXIST; }
+<NORMAL>"IF NOT EXISTS"    { return IF_NOT_EXISTS; }
 <NORMAL>"NULL"    { return SQLNULL; }
 <NORMAL>"DEFAULT"    { return DEFAULT; }
 <NORMAL>"NOT"    { return NOT; }
@@ -158,15 +177,39 @@ unsigned lex_state = 0;
 <NORMAL>"COMPACT"    { return COMPACT; }
 <NORMAL>"CURRENT_TIMESTAMP"    { return CURRENT_TIMESTAMP; }
 <NORMAL>"REFERENCES"    { return REFERENCES; }
-<NORMAL>[[_a-zA-Z]+[-_a-zA-Z0-9]*]*    { 
+
+<NORMAL>({ASCII_1}|{U_FULL})+    {
+    // Check if the entity name consists not only of digits
+    int i = 0;
+    int all_digits = 1;
+    for (i = 0; i < strlen(yytext); i++) {
+        if (!isdigit(yytext[i])) {
+            all_digits = 0;
+            break;
+        }
+    }
+    if (all_digits) {
+        REJECT;
+    }
     memset(yylval.str, 0, sizeof(yylval.str)); 
     strncpy(yylval.str, yytext, strlen(yytext)) ; 
     return entity_name; 
     }
-<NORMAL,COMMENT_c>'[^']*'    { 
-    memset(yylval.str, 0, sizeof(yylval.str)); 
-    strncpy(yylval.str, yytext, strlen(yytext)) ; 
-    return string_value; 
+<NORMAL>'       { old_lex_state = NORMAL; BEGIN QUOTED; memset(yylval.str, 0, sizeof(yylval.str));}
+<COMMENT_c>'    { old_lex_state = COMMENT_c; BEGIN QUOTED; memset(yylval.str, 0, sizeof(yylval.str));}
+<QUOTED>[^']+    {
+    // fprintf(stderr, "\n-- String value: %s\n", yytext);
+    strncpy(yylval.str + strlen(yylval.str), yytext, strlen(yytext)) ;
+    }
+<QUOTED>'+      {
+    if (yyleng % 2) {
+        strncpy(yylval.str + strlen(yylval.str), yytext, strlen(yytext)) ;
+        BEGIN old_lex_state;
+        return string_value;
+        }
+    else {
+        strncpy(yylval.str + strlen(yylval.str), yytext, strlen(yytext)) ;
+        }
     }
 <NORMAL,COMMENT_c>[0-9]+    { yylval.si = strtoll(yytext, NULL, 10); return int_value; }
 <NORMAL,COMMENT_c>[ \t\r]   ;

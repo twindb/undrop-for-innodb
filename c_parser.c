@@ -77,8 +77,8 @@ bool deleted_pages_only = 0;
 bool deleted_records_only = 0;
 bool undeleted_records_only = 1;
 bool debug = 0;
-bool process_redundant = 0;
-bool process_compact = 0;
+//bool process_redundant = 0;
+//bool process_compact = 0;
 bool process_56 = 0;
 char blob_dir[256] = ".";
 char dump_prefix[256] = "default";
@@ -98,6 +98,10 @@ inline void error(char *msg) {
   exit(1);
 }
 
+/* Recovery status counter */
+unsigned long records_expected_total = 0;
+unsigned long records_dumped_total = 0;
+int records_lost = 0;
 
 /*****************************************************************
  * Prints the contents of a memory buffer in hex and ascii. */
@@ -138,7 +142,7 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 	for(i = 0; i < table->fields_count; i++) {
 		ulint len;
 		byte *field = rec_get_nth_field(rec, offsets, i, &len);
-		
+
 		if (table->fields[i].type == FT_INTERNAL){
 			if (debug) printf("Field #%i @ %p: length %lu, value: ", i, field, len);
 			print_field_value(field, len, &(table->fields[i]));
@@ -160,9 +164,9 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 	for(i = 0; i < table->fields_count; i++) {
 		ulint len;
 		byte *field = rec_get_nth_field(rec, offsets, i, &len);
-		
+
 		if (table->fields[i].type == FT_INTERNAL) continue;
-		
+
 		if (debug) printf("Field #%i @ %p: length %lu, value: ", i, field, len);
 
 		if (len == UNIV_SQL_NULL) {
@@ -174,7 +178,7 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 			        print_field_value(field, len, &(table->fields[i]));
                     }
 		    }
-		
+
 		if (i < table->fields_count - 1) fprintf(f_result, "\t");
 		if (debug) printf("\n");
 	}
@@ -186,12 +190,12 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 inline ibool check_constraints(rec_t *rec, table_def_t* table, ulint* offsets) {
 	int i;
     ulint len_sum = 0;
-	
+
 	if (debug) {
 		printf("\nChecking constraints for a row (%s) at %p:", table->name, rec);
 		ut_print_buf(stdout, rec, 100);
 	}
-	
+
 	// Check every field
 	for(i = 0; i < table->fields_count; i++) {
 		// Get field value pointer and field length
@@ -207,7 +211,7 @@ inline ibool check_constraints(rec_t *rec, table_def_t* table, ulint* offsets) {
                 len_sum += rec_get_nth_field_size(rec, i);
                 }
             }
-                
+
 
 		// Skip null fields from type checks and fail if null is not allowed by data limits
 		if (len == UNIV_SQL_NULL) {
@@ -217,7 +221,7 @@ inline ibool check_constraints(rec_t *rec, table_def_t* table, ulint* offsets) {
 			}
 			continue;
 		}
-		
+
 		// Check limits
 		if (!table->fields[i].has_limits) continue;
 		if (!check_field_limits(&(table->fields[i]), field, len)) {
@@ -248,18 +252,22 @@ inline ibool check_fields_sizes(rec_t *rec, table_def_t *table, ulint *offsets) 
 	if (debug) {
 		printf("\nChecking field lengths for a row (%s): ", table->name);
 		printf("OFFSETS: ");
+		unsigned long int prev_offset = 0;
+		unsigned long int curr_offset = 0;
 		for(i = 0; i < rec_offs_n_fields(offsets); i++) {
-			printf("%lu ", rec_offs_base(offsets)[i]);
+			curr_offset = rec_offs_base(offsets)[i];
+			printf("%lu (+%lu); ", curr_offset, curr_offset - prev_offset);
+			prev_offset = curr_offset;
 		}
 //		printf("\n");
 	}
-	
+
 	// check every field
 	for(i = 0; i < table->fields_count; i++) {
 		// Get field size
 		ulint len = rec_offs_nth_size(offsets, i);
 		if (debug) printf("\n - field %s(%lu):", table->fields[i].name, len);
-		
+
 		// If field is null
 		if (len == UNIV_SQL_NULL) {
 			// Check if it can be null and jump to a next field if it is OK
@@ -267,8 +275,8 @@ inline ibool check_fields_sizes(rec_t *rec, table_def_t *table, ulint *offsets) 
 			// Invalid record where non-nullable field is NULL
 			if (debug) printf("Can't be NULL or zero-length!\n");
 			return FALSE;
-		} 
-		
+		}
+
 		// Check size of fixed-length field
 		if (table->fields[i].fixed_length) {
 			// Check if size is the same and jump to the next field if it is OK
@@ -277,15 +285,15 @@ inline ibool check_fields_sizes(rec_t *rec, table_def_t *table, ulint *offsets) 
 			if (debug) printf("Invalid fixed length field size: %lu, but should be %u!\n", len, table->fields[i].fixed_length);
 			return FALSE;
 		}
-		
-		// Check if has externally stored data 
+
+		// Check if has externally stored data
 		if (rec_offs_nth_extern(offsets, i)) {
 			if (debug) printf("\nEXTERNALLY STORED VALUE FOUND in field %i\n", i);
 			if (table->fields[i].type == FT_TEXT || table->fields[i].type == FT_BLOB) continue;
 			if (debug) printf("Invalid external data flag!\n");
 			return FALSE;
 		}
-		
+
 		// Check size limits for varlen fields
 		if (len < table->fields[i].min_length || len > table->fields[i].max_length) {
 			if (debug) printf("Length limits check failed (%lu < %u || %lu > %u)!\n", len, table->fields[i].min_length, len, table->fields[i].max_length);
@@ -313,15 +321,15 @@ inline ibool ibrec_init_offsets_new(page_t *page, rec_t* rec, table_def_t* table
 
 	// First field is 0 bytes from origin point
 	rec_offs_base(offsets)[0] = 0;
-	
+
 	// Init first bytes
 	rec_offs_set_n_fields(offsets, table->fields_count);
-	
+
 	nulls = rec - (REC_N_NEW_EXTRA_BYTES + 1);
 	lens = nulls - (table->n_nullable + 7) / 8;
 	offs = 0;
 	null_mask = 1;
-	
+
 	/* read the lengths of fields 0..n */
 	do {
 		ulint	len;
@@ -392,10 +400,10 @@ inline ibool ibrec_init_offsets_old(page_t *page, rec_t* rec, table_def_t* table
 
 	// First field is 0 bytes from origin point
 	rec_offs_base(offsets)[0] = 0;
-	
+
 	// Init first bytes
 	rec_offs_set_n_fields(offsets, table->fields_count);
-		
+
 	/* Old-style record: determine extra size and end offsets */
 	offs = REC_N_OLD_EXTRA_BYTES;
 	if (rec_get_1byte_offs_flag(rec)) {
@@ -442,8 +450,8 @@ inline ibool ibrec_init_offsets_old(page_t *page, rec_t* rec, table_def_t* table
 			rec_offs_base(offsets)[1 + i] = offs;
 		} while (++i < rec_offs_n_fields(offsets));
 	}
-	
-	return TRUE;	
+
+	return TRUE;
 }
 
 /*******************************************************************/
@@ -463,10 +471,11 @@ inline ibool check_for_a_record(page_t *page, rec_t *rec, table_def_t *table, ul
 
 	// Skip deleted records
 	if (undeleted_records_only && flag != 0) return FALSE;
-	
+
     // Get field offsets for current table
-	if (process_compact && !ibrec_init_offsets_new(page, rec, table, offsets)) return FALSE;
-	if (process_redundant && !ibrec_init_offsets_old(page, rec, table, offsets)) return FALSE;
+	int comp = page_is_comp(page);
+	if (comp && !ibrec_init_offsets_new(page, rec, table, offsets)) return FALSE;
+	if (!comp && !ibrec_init_offsets_old(page, rec, table, offsets)) return FALSE;
 	if (debug) printf("OFFSETS=OK ");
 
 	// Check the record's data size
@@ -484,24 +493,9 @@ inline ibool check_for_a_record(page_t *page, rec_t *rec, table_def_t *table, ul
 	// Check fields sizes
 	if (!check_fields_sizes(rec, table, offsets)) return FALSE;
 	if (debug) printf("FIELD_SIZES=OK ");
-	
+
 	// This record could be valid and useful for us
 	return TRUE;
-}
-
-/*******************************************************************/
-inline bool check_page_format(page_t *page) {
-	if (process_redundant && page_is_comp(page)) {
-		if (debug) printf("Page is in COMPACT format while we're looking for REDUNDANT - skipping\n");
-		return FALSE;
-	}
-
-	if (process_compact && !page_is_comp(page)) {
-		if (debug) printf("Page is in REDUNDANT format while we're looking for COMPACT - skipping\n");
-		return FALSE;
-	}
-	
-    return TRUE;
 }
 
 /*******************************************************************/
@@ -573,7 +567,7 @@ void process_ibpage(page_t *page) {
     unsigned int expected_records_inheader = 0;
     unsigned int actual_records = 0;
     int16_t b, infimum, supremum;
-	
+
 	// Skip tables if filter used
     if (use_filter_id) {
         dulint index_id = mach_read_from_8(page + PAGE_HEADER + PAGE_INDEX_ID);
@@ -590,14 +584,13 @@ void process_ibpage(page_t *page) {
 	page_id = mach_read_from_4(page + FIL_PAGE_OFFSET);
 	if (debug) printf("Page id: %lu\n", page_id);
 	fprintf(f_result, "-- Page id: %lu", page_id);
-	// Check requested and actual formats
-    if (!check_page_format(page)) return;
+
 	if(table_definitions_cnt == 0){
 		fprintf(stderr, "There are no table definitions. Please check  include/table_defs.h\n");
 		exit(EXIT_FAILURE);
 		}
     is_page_valid = check_page(page, &expected_records);
-    
+
     // comp == 1 if page in COMPACT format and 0 if REDUNDANT
     comp = page_is_comp(page);
     fprintf(f_result, ", Format: %s", (comp ) ? "COMPACT": "REDUNDANT");
@@ -616,15 +609,15 @@ void process_ibpage(page_t *page) {
     	fprintf(f_result, ", Expected records: (%u %u)", expected_records, expected_records_inheader);
     	fprintf(f_result, "\n");
 	if (debug) printf("Starting offset: %lu (%lX). Checking %d table definitions.\n", offset, offset, table_definitions_cnt);
-	
-	// Walk through all possible positions to the end of page 
+
+	// Walk through all possible positions to the end of page
 	// (start of directory - extra bytes of the last rec)
     //is_page_valid = 0;
 	while (offset < UNIV_PAGE_SIZE - record_extra_bytes && ( (offset != supremum ) || !is_page_valid) ) {
 		// Get record pointer
 		origin = page + offset;
 		if (debug) printf("\nChecking offset: 0x%lX: ", offset);
-		
+
 		// Check all tables
 		for (i = 0; i < table_definitions_cnt; i++) {
 			// Get table info
@@ -661,11 +654,21 @@ void process_ibpage(page_t *page) {
 			}
 		}
 	fflush(f_result);
+	int leaf_page = mach_read_from_2(page + PAGE_HEADER + PAGE_LEVEL) == 0;
+	int lost_records = (actual_records != expected_records) && (actual_records != expected_records_inheader);
 	fprintf(f_result, "-- Page id: %lu", page_id);
 	fprintf(f_result, ", Found records: %u", actual_records);
-	fprintf(f_result, ", Lost records: %s", (actual_records != expected_records) && (actual_records != expected_records_inheader) ? "YES": "NO");
-    	fprintf(f_result, ", Leaf page: %s", (mach_read_from_2(page + PAGE_HEADER + PAGE_LEVEL) == 0)? "YES": "NO");
+	fprintf(f_result, ", Lost records: %s", lost_records ? "YES": "NO");
+	fprintf(f_result, ", Leaf page: %s", leaf_page ? "YES": "NO");
 	fprintf(f_result, "\n");
+	if (leaf_page) {
+	    records_expected_total += expected_records_inheader;
+	    records_dumped_total += actual_records;
+	    if (lost_records) {
+	        records_lost = 1;
+	    }
+	}
+
 }
 
 /*******************************************************************/
@@ -675,14 +678,12 @@ void process_ibfile(int fn) {
     struct stat st;
     off_t pos;
     ulint free_offset;
-    	
+
 	if (!page) {
         fprintf(stderr, "Can't allocate page buffer!");
         exit(EXIT_FAILURE);
         }
 
-	// Initialize table definitions (count nullable fields, data sizes, etc)
-	init_table_defs();
 
 	if (debug) printf("Read data from fn=%d...\n", fn);
 
@@ -692,7 +693,7 @@ void process_ibfile(int fn) {
 	// Read pages to the end of file
 	while ((read_bytes = read(fn, page, UNIV_PAGE_SIZE)) == UNIV_PAGE_SIZE) {
         pos = lseek(fn, 0, SEEK_CUR);
-        
+
         if (pos % (UNIV_PAGE_SIZE * 512) == 0) {
             fprintf(f_sql, "-- %.2f%% done\n", 100.0 * pos / st.st_size);
         }
@@ -703,10 +704,14 @@ void process_ibfile(int fn) {
     		if (free_offset > 0 && page_header_get_field(page, PAGE_GARBAGE) == 0) continue;
     		if (free_offset > UNIV_PAGE_SIZE) continue;
     	}
-        
+
+        // Initialize table definitions (count nullable fields, data sizes, etc)
+        init_table_defs(page_is_comp(page));
         process_ibpage(page);
+
 	}
 	free(page);
+
 }
 
 /*******************************************************************/
@@ -725,7 +730,7 @@ int open_ibfile(char *fname) {
         fprintf(stderr, "Can't open file!");
         exit(EXIT_FAILURE);
         }
-	
+
 	return fn;
 }
 
@@ -742,7 +747,7 @@ void set_filter_id(char *id) {
 /*******************************************************************/
 void usage() {
 	error(
-	  "Usage: ./c_parser -4|-5|-6 [-dDV] -f <InnoDB page or dir> -t table.sql [-T N:M] [-b <external pages directory>]\n"
+	  "Usage: ./c_parser [-4|-5|-6] [-dDV] -f <InnoDB page or dir> -t table.sql [-T N:M] [-b <external pages directory>]\n"
 	  "  Where\n"
 	  "    -f <InnoDB page(s)> -- InnoDB page or directory with pages(all pages should have same index_id)\n"
 	  "    -t <table.sql> -- CREATE statement of a table\n"
@@ -756,6 +761,7 @@ void usage() {
 	  "    -4  -- innodb_datafile is in REDUNDANT format\n"
 	  "    -5  -- innodb_datafile is in COMPACT format\n"
 	  "    -6  -- innodb_datafile is in MySQL 5.6 format\n"
+	  "    c_parser can detect REDUNDANT or COMPACT, so -4 and -5 are optional. If you use MySQL 5.6+ however, -6 is necessary\n"
 	  "    -T  -- retrieves only pages with index id = NM (N - high word, M - low word of id)\n"
 	  "    -b <dir> -- Directory where external pages can be found. Usually it is pages-XXX/FIL_PAGE_TYPE_BLOB/\n"
 	  "    -i <file> -- Read external pages at their offsets from <file>.\n"
@@ -768,9 +774,9 @@ void usage() {
 int main(int argc, char **argv) {
 	int fn = 0, ch;
 	int is_dir = 0;
-	int table_loaded = 0;
 	struct stat st;
 	char src[256] = "";
+	char table_schema[256] = "";
 
 	char buffer[BUFSIZ];
         setvbuf(stdout, buffer, _IOFBF, sizeof(buffer));
@@ -810,11 +816,7 @@ int main(int argc, char **argv) {
                 }
                 break;
 			case 't':
-                if(load_table(optarg) != 0){
-                    fprintf(stderr, "Failed to parse table structure\n");
-                    exit(EXIT_FAILURE);
-                }
-                table_loaded = 1;
+			    strncpy(table_schema, optarg, sizeof(table_schema));
 				break;
 			case 'f':
 				strncpy(src, optarg, sizeof(src));
@@ -832,22 +834,18 @@ int main(int argc, char **argv) {
 			case 'V':
 				debug = 1;
 				break;
-            		case '4':
-                		process_redundant = 1;
-                		break;
-            		case '5':
-                		process_compact = 1;
-             	 		break;
-            		case '6':
-                		process_compact = 1;
-                		process_56 = 1;
-             	 		break;
-            		case 'T':
-                		set_filter_id(optarg);
-                		break;
-            		case 'b':
-                		strncpy(blob_dir, optarg, sizeof(blob_dir));
-                		break;
+            case '4':
+            case '5':
+                break;
+            case '6':
+                process_56 = 1;
+                break;
+            case 'T':
+                set_filter_id(optarg);
+                break;
+            case 'b':
+                strncpy(blob_dir, optarg, sizeof(blob_dir));
+                break;
 			case 'p':
 				strncpy(dump_prefix, optarg, sizeof(dump_prefix));
 				break;
@@ -860,9 +858,13 @@ int main(int argc, char **argv) {
     if(src[0] == 0){
         usage();
     }
-    if(table_loaded != 1){
+
+    if(load_table(table_schema) != 0){
+        fprintf(stderr, "Failed to parse table structure\n");
         usage();
+        exit(EXIT_FAILURE);
     }
+
 	if(is_dir){
 		DIR *src_dir;
 		char src_file[256];
@@ -947,10 +949,8 @@ int main(int argc, char **argv) {
 			}
 		}
 	fprintf(f_sql, ";\n");
-	if (!process_compact && !process_redundant) {
-	  fprintf(stderr,"Error: Please, specify what format your datafile in. Use -4 for mysql 4.1 and below and -5 for 5.X+\n");
-	  usage();
-	}
-	
+	fprintf(f_sql, "-- STATUS {\"records_expected\": %lu, \"records_dumped\": %lu, \"records_lost\": %s} STATUS END\n",
+	records_expected_total, records_dumped_total, records_lost ? "true": "false");
+
 	return 0;
 }

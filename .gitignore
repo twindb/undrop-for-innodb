@@ -1,0 +1,8 @@
+.idea/
+vagrant/.vagrant
+*.o
+c_parser
+innochecksum_changer
+lex.yy.c
+sql_parser.c
+stream_parser

@@ -10,7 +10,7 @@ INSTALL ?=install
 YACC = bison
 LEX = flex
 
-CFLAGS += -D_FILE_OFFSET_BITS=64 -Wall -g -O3 -pipe 
+CFLAGS += -D_FILE_OFFSET_BITS=64 -Wall -g -O3 -pipe
 INSTALLFLAGS ?=-s
 CentOS5 = $(findstring .el5,$(shell cat /proc/version))
 ifeq ($(CentOS5), .el5)
@@ -19,7 +19,7 @@ endif
 
 all: $(TARGETS)
 
-debug: LEX_DEBUG = -d 
+debug: LEX_DEBUG = -d
 debug: YACC_DEBUG = -r all
 debug: CFLAGS += -DDEBUG -DSTREAM_PARSER_DEBUG
 debug: $(TARGETS)
@@ -31,7 +31,7 @@ stream_parser: stream_parser.o
 	$(CC) $(CFLAGS) $(INC_PATH) $(LIB_PATH) $(LIBS) $(LDFLAGS) $< -o $@
 
 sql_parser.o: sql_parser.c
-	$(CC) $(CFLAGS) $(INC_PATH) -c $< 
+	$(CC) $(CFLAGS) $(INC_PATH) -c $<
 
 sql_parser.c: sql_parser.y lex.yy.c
 	$(YACC) $(YACC_DEBUG) -o $@ $<
@@ -67,3 +67,10 @@ install: $(TARGETS)
 clean:
 	rm -f $(OBJECTS) $(TARGETS) lex.yy.c sql_parser.c sql_parser.output sys_parser
 	rm -f *.o *.core
+
+docker-start:
+	@docker run \
+        -v $(shell pwd):/undrop-for-innodb \
+        -it \
+        --rm \
+        centos:7 bash -l
