@@ -11,7 +11,7 @@
 extern bool debug;
 
 inline ulonglong make_ulonglong(dulint x);
-inline longlong make_longlong(dulint x);
+__inline__ longlong make_longlong(dulint x);
 
 unsigned long long int get_uint_value(field_def_t *field, byte *value);
 long long int get_int_value(field_def_t *field, byte *value);

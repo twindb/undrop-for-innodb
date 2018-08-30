@@ -903,7 +903,7 @@ int main(int argc, char **argv) {
 	else{
 		fprintf(f_sql, "%s", result_file);
 		}
-	fprintf(f_sql, "' REPLACE INTO TABLE `%s` FIELDS TERMINATED BY '\\t' OPTIONALLY ENCLOSED BY '\"' LINES STARTING BY '%s\\t' ", table->name, table->name);
+	fprintf(f_sql, "' REPLACE INTO TABLE `%s` CHARACTER SET UTF8 FIELDS TERMINATED BY '\\t' OPTIONALLY ENCLOSED BY '\"' LINES STARTING BY '%s\\t' ", table->name, table->name);
 	int i = 0;
 	int comma = 0;
 	int has_set = 0;
