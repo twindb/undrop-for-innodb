@@ -344,16 +344,10 @@ inline void print_field_value(byte *value, ulint len, field_def_t *field) {
 
 		case FT_CHAR:
 		case FT_TEXT:
-			print_string((char*)value, len, field);
-			break;
-
-                case FT_BIN:
-                        print_hex((char*)value, len);
-			break;
-
+		case FT_BIN:
 		case FT_BLOB:
-            		print_hex((char*)value, len);
-            		break;
+			print_hex((char*)value, len);
+			break;
 
 		case FT_BIT:
 		case FT_UINT:

@@ -912,8 +912,10 @@ int main(int argc, char **argv) {
 		if(table->fields[i].type == FT_INTERNAL) continue;
 		if(comma) fprintf(f_sql, ", ");
 		switch(table->fields[i].type){
-			case FT_BLOB:
+			case FT_CHAR:
+			case FT_TEXT:
 			case FT_BIN:
+			case FT_BLOB:
 				fprintf(f_sql, "@var_%s", table->fields[i].name);
 				has_set = 1;
 				break;
@@ -933,8 +935,10 @@ int main(int argc, char **argv) {
 		for(i = 0; i < table->fields_count; i++) {
 			if(table->fields[i].type == FT_INTERNAL) continue;
 			switch(table->fields[i].type){
-				case FT_BLOB:
+				case FT_CHAR:
+				case FT_TEXT:
 				case FT_BIN:
+				case FT_BLOB:
 					if(comma) fprintf(f_sql, ",\n");
 					fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
 					comma = 1;
