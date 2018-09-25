@@ -45,6 +45,7 @@ There is a series of blog posts that describe in great details recovery from dif
  * [Recover InnoDB dictionary](https://twindb.com/how-to-recover-innodb-dictionary/) – how to recover and read InnoDB dictionary tables.
  * [UnDROP tool for InnoDB](https://twindb.com/undrop-tool-for-innodb/) – describes tools of the toolkit, their usage, command line options.
  * [InnoDB dictionary](https://twindb.com/innodb-dictionary/) – describes InnoDB dictionary, its tables and format.
+ * [Overview of Undrop-for-InnoDB](https://yq.aliyun.com/articles/281230?utm_content=m_37044) - Recovery after DROP table, `innodb_file_per_table` ON and OFF, corrupted database recovery (在普通话)
 
 ## Commercial Support and Data Recovery Service
 
