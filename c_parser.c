@@ -135,7 +135,7 @@ ut_print_buf(
 }
 
 /*******************************************************************/
-ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets) {
+ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets, bool hex) {
 	ulint data_size;
 	int i;
 	// Print trx_id and rollback pointer
@@ -145,7 +145,7 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 
 		if (table->fields[i].type == FT_INTERNAL){
 			if (debug) printf("Field #%i @ %p: length %lu, value: ", i, field, len);
-			print_field_value(field, len, &(table->fields[i]));
+			print_field_value(field, len, &(table->fields[i]), hex);
 			if (i < table->fields_count - 1) fprintf(f_result, "\t");
 			if (debug) printf("\n");
 			}
@@ -173,9 +173,9 @@ ulint process_ibrec(page_t *page, rec_t *rec, table_def_t *table, ulint *offsets
 			fprintf(f_result, "NULL");
 		} else {
             if (rec_offs_nth_extern(offsets, i)) {
-                print_field_value_with_external(field, len, &(table->fields[i]));
+                print_field_value_with_external(field, len, &(table->fields[i]), hex);
                 } else {
-			        print_field_value(field, len, &(table->fields[i]));
+			        print_field_value(field, len, &(table->fields[i]), hex);
                     }
 		    }
 
@@ -556,7 +556,7 @@ int check_page(page_t *page, unsigned int *n_records){
     return 1;
     }
 /*******************************************************************/
-void process_ibpage(page_t *page) {
+void process_ibpage(page_t *page, bool hex) {
     ulint page_id;
 	rec_t *origin;
 	ulint offsets[MAX_TABLE_FIELDS + 2];
@@ -631,12 +631,12 @@ void process_ibpage(page_t *page) {
 			       			  "PAGE%lu: Found a table %s record: %p (offset = %lu)\n", \
 						  page_id, table->name, origin, offset);
                 		if(is_page_valid){
-					process_ibrec(page, origin, table, offsets);
+					process_ibrec(page, origin, table, offsets, hex);
                     			b = mach_read_from_2(page + offset - 2);
 					offset = (comp) ? offset + b : b;
                     			}
 				else{
-					offset += process_ibrec(page, origin, table, offsets);
+					offset += process_ibrec(page, origin, table, offsets, hex);
                     			}
                 		if (debug) printf("Next offset: 0x%lX", offset);
 			   		break;
@@ -672,7 +672,7 @@ void process_ibpage(page_t *page) {
 }
 
 /*******************************************************************/
-void process_ibfile(int fn) {
+void process_ibfile(int fn, bool hex) {
 	int read_bytes;
 	page_t *page = malloc(UNIV_PAGE_SIZE);
     struct stat st;
@@ -707,7 +707,7 @@ void process_ibfile(int fn) {
 
         // Initialize table definitions (count nullable fields, data sizes, etc)
         init_table_defs(page_is_comp(page));
-        process_ibpage(page);
+        process_ibpage(page, hex);
 
 	}
 	free(page);
@@ -766,6 +766,7 @@ void usage() {
 	  "    -b <dir> -- Directory where external pages can be found. Usually it is pages-XXX/FIL_PAGE_TYPE_BLOB/\n"
 	  "    -i <file> -- Read external pages at their offsets from <file>.\n"
 	  "    -p prefix -- Use prefix for a directory name in LOAD DATA INFILE command\n"
+	  "    -x -- Print text values in hexadecimal format.\n"
 	  "\n"
 	);
 }
@@ -785,7 +786,9 @@ int main(int argc, char **argv) {
 	f_sql = stderr;
 	char result_file[1024];
 	char sql_file[1024];
-	while ((ch = getopt(argc, argv, "t:456hdDUVf:T:b:p:o:i:l:")) != -1) {
+	bool hex = 0;
+
+	while ((ch = getopt(argc, argv, "t:456hdDUVf:T:b:p:o:i:l:x")) != -1) {
 		switch (ch) {
 			case 'd':
 				deleted_pages_only = 1;
@@ -849,6 +852,9 @@ int main(int argc, char **argv) {
 			case 'p':
 				strncpy(dump_prefix, optarg, sizeof(dump_prefix));
 				break;
+			case 'x':
+				hex = 1;
+				break;
 			default:
 			case '?':
 			case 'h':
@@ -880,7 +886,7 @@ int main(int argc, char **argv) {
 				perror("open_ibfile");
 				exit(-1);
 				}
-			process_ibfile(fn);
+			process_ibfile(fn, hex);
 			close(fn);
 			}
 		closedir(src_dir);
@@ -891,7 +897,7 @@ int main(int argc, char **argv) {
 			perror("open_ibfile");
 			exit(-1);
 			}
-		process_ibfile(fn);
+		process_ibfile(fn, hex);
 		close(fn);
 		}
 	table_def_t *table = &(table_definitions[0]);
@@ -912,8 +918,17 @@ int main(int argc, char **argv) {
 		if(table->fields[i].type == FT_INTERNAL) continue;
 		if(comma) fprintf(f_sql, ", ");
 		switch(table->fields[i].type){
-			case FT_BLOB:
+			case FT_CHAR:
+			case FT_TEXT:
+				if (hex) {
+					fprintf(f_sql, "@var_%s", table->fields[i].name);
+					has_set = 1;
+				} else {
+					fprintf(f_sql, "`%s`", table->fields[i].name);
+				}
+				break;
 			case FT_BIN:
+			case FT_BLOB:
 				fprintf(f_sql, "@var_%s", table->fields[i].name);
 				has_set = 1;
 				break;
@@ -933,8 +948,16 @@ int main(int argc, char **argv) {
 		for(i = 0; i < table->fields_count; i++) {
 			if(table->fields[i].type == FT_INTERNAL) continue;
 			switch(table->fields[i].type){
-				case FT_BLOB:
+				case FT_CHAR:
+				case FT_TEXT:
+					if (hex) {
+						if(comma) fprintf(f_sql, ",\n");
+						fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
+						comma = 1;
+					}
+					break;
 				case FT_BIN:
+				case FT_BLOB:
 					if(comma) fprintf(f_sql, ",\n");
 					fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
 					comma = 1;

@@ -334,7 +334,7 @@ inline void print_decimal(byte *value, field_def_t *field) {
 }
 
 /*******************************************************************/
-inline void print_field_value(byte *value, ulint len, field_def_t *field) {
+inline void print_field_value(byte *value, ulint len, field_def_t *field, bool hex) {
   /* time_t t;*/
 
 	switch (field->type) {
@@ -344,16 +344,17 @@ inline void print_field_value(byte *value, ulint len, field_def_t *field) {
 
 		case FT_CHAR:
 		case FT_TEXT:
-			print_string((char*)value, len, field);
-			break;
-
-                case FT_BIN:
-                        print_hex((char*)value, len);
-			break;
-
+			if (hex) {
+				print_hex((char*)value, len);
+				break;
+			} else {
+				print_string((char*)value, len, field);
+				break;
+			}
+		case FT_BIN:
 		case FT_BLOB:
-            		print_hex((char*)value, len);
-            		break;
+			print_hex((char*)value, len);
+			break;
 
 		case FT_BIT:
 		case FT_UINT:
@@ -412,7 +413,7 @@ inline void print_field_value(byte *value, ulint len, field_def_t *field) {
 
 
 /*******************************************************************/
-void print_field_value_with_external(byte *value, ulint len, field_def_t *field) {
+void print_field_value_with_external(byte *value, ulint len, field_def_t *field, bool hex) {
    ulint   page_no, offset, extern_len, len_sum;
    char tmp[256];
    page_t *page = ut_align(buffer, UNIV_PAGE_SIZE);
@@ -425,7 +426,7 @@ void print_field_value_with_external(byte *value, ulint len, field_def_t *field)
            extern_len = mach_read_from_4(value + len - BTR_EXTERN_FIELD_REF_SIZE + BTR_EXTERN_LEN + 4);
            len_sum = 0;
 
-           if (field->type == FT_TEXT) {
+           if (field->type == FT_TEXT && !hex) {
                fprintf(f_result, "\"");
                print_string_raw((char*)value, len - BTR_EXTERN_FIELD_REF_SIZE);
            } else {
@@ -466,7 +467,7 @@ void print_field_value_with_external(byte *value, ulint len, field_def_t *field)
                    page_no = mach_read_from_4(blob_header + 4 /*BTR_BLOB_HDR_NEXT_PAGE_NO*/);
                    offset = FIL_PAGE_DATA;
 
-                   if (field->type == FT_TEXT) {
+                   if (field->type == FT_TEXT && !hex) {
                        print_string_raw((char*)blob_header + 8 /*BTR_BLOB_HDR_SIZE*/, part_len);
                    } else {
                        print_hex((char*)blob_header + 8 /*BTR_BLOB_HDR_SIZE*/, part_len);

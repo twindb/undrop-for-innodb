@@ -21,8 +21,8 @@ void print_date(ulong ldate);
 void print_time(unsigned char* value, field_def_t *field);
 
 void print_enum(int value, field_def_t *field);
-void print_field_value(byte *value, ulint len, field_def_t *field);
-void print_field_value_with_external(byte *value, ulint len, field_def_t *field);
+void print_field_value(byte *value, ulint len, field_def_t *field, bool hex);
+void print_field_value_with_external(byte *value, ulint len, field_def_t *field, bool hex);
 
 void rec_print_new(FILE* file, rec_t* rec, const ulint* offsets);
 
