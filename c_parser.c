@@ -923,8 +923,10 @@ int main(int argc, char **argv) {
 				if (hex) {
 					fprintf(f_sql, "@var_%s", table->fields[i].name);
 					has_set = 1;
-					break;
+				} else {
+					fprintf(f_sql, "`%s`", table->fields[i].name);
 				}
+				break;
 			case FT_BIN:
 			case FT_BLOB:
 				fprintf(f_sql, "@var_%s", table->fields[i].name);
@@ -952,8 +954,8 @@ int main(int argc, char **argv) {
 						if(comma) fprintf(f_sql, ",\n");
 						fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
 						comma = 1;
-						break;
 					}
+					break;
 				case FT_BIN:
 				case FT_BLOB:
 					if(comma) fprintf(f_sql, ",\n");
