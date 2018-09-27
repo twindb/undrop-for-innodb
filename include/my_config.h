@@ -205,6 +205,7 @@
 
 /* Define to 1 if you have the <crypt.h> header file. */
 #define HAVE_CRYPT_H 1
+#undef HAVE_CRYPT_H
 
 /* Builds the CSV Storage Engine */
 /* #undef HAVE_CSV_DB */
