@@ -952,19 +952,19 @@ int main(int argc, char **argv) {
 				case FT_TEXT:
 					if (hex) {
 						if(comma) fprintf(f_sql, ",\n");
-						fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
+						fprintf(f_sql, "    `%s` = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
 						comma = 1;
 					}
 					break;
 				case FT_BIN:
 				case FT_BLOB:
 					if(comma) fprintf(f_sql, ",\n");
-					fprintf(f_sql, "    %s = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
+					fprintf(f_sql, "    `%s` = UNHEX(@var_%s)", table->fields[i].name, table->fields[i].name);
 					comma = 1;
 					break;
 				case FT_BIT:
 					if(comma) fprintf(f_sql, ",\n");
-					fprintf(f_sql, "    %s = CAST(@var_%s AS UNSIGNED)", table->fields[i].name, table->fields[i].name);
+					fprintf(f_sql, "    `%s` = CAST(@var_%s AS UNSIGNED)", table->fields[i].name, table->fields[i].name);
 					comma = 1;
 					break;
 				default: break;
