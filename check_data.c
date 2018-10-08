@@ -4,7 +4,7 @@
 #include <regex.h>
 
 // Linux has no isnumber function? (Debian 4.0 has no such function)
-#ifndef isnumber
+#ifdef linux
 inline int isnumber(char c) {
     return (isdigit(c) || c == '.' || c == '-');
 }
