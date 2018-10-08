@@ -174,6 +174,10 @@ management to ensure correct alignment for doubles etc. */
 /* Note that inside MySQL 'byte' is defined as char on Linux! */
 #define byte			unsigned char
 
+#ifdef __APPLE__
+#define ulong unsigned long
+#endif
+
 /* Another basic type we use is unsigned long integer which should be equal to
 the word size of the machine, that is on a 32-bit platform 32 bits, and on a
 64-bit platform 64 bits. We also give the printf format for the type as a
