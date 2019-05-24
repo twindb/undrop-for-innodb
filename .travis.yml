@@ -9,7 +9,6 @@ matrix:
   - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=trusty DOCKER_IMAGE=twindb/backup-test:trusty
   - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=xenial DOCKER_IMAGE=twindb/backup-test:xenial
   - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=bionic DOCKER_IMAGE=twindb/backup-test:bionic
-  - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=cosmic DOCKER_IMAGE=twindb/backup-test:cosmic
 
 services:
 - docker
