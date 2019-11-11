@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+echo 'Thank you for installing UnDrop For InnoDB'
+set -x
+for ep in c_parser stream_parser
+do
+    if ! test -L /usr/bin/${ep}
+    then
+        ln -s "/opt/undrop-for-innodb/embedded/bin/${ep}" /usr/bin/${ep}
+    fi
+done
