@@ -1,0 +1,33 @@
+sudo: required
+matrix:
+  fast_finish: true
+  include:
+  - env: PLATFORM=centos DISTRO=el OS_VERSION=7 DOCKER_IMAGE=twindb/backup-test:centos-7
+  - env: PLATFORM=centos DISTRO=el OS_VERSION=6 DOCKER_IMAGE=twindb/backup-test:centos-6
+  - env: PLATFORM=debian DISTRO=debian OS_VERSION=jessie DOCKER_IMAGE=twindb/backup-test:jessie
+  - env: PLATFORM=debian DISTRO=debian OS_VERSION=stretch DOCKER_IMAGE=twindb/backup-test:stretch
+  - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=trusty DOCKER_IMAGE=twindb/backup-test:trusty
+  - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=xenial DOCKER_IMAGE=twindb/backup-test:xenial
+  - env: PLATFORM=ubuntu DISTRO=ubuntu OS_VERSION=bionic DOCKER_IMAGE=twindb/backup-test:bionic
+
+services:
+- docker
+
+before_install:
+- sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 0C49F3730359A14518585931BC711F9BA15703C6
+- sudo apt-get update -qq
+
+script:
+- make
+
+#deploy:
+#  on:
+#    branch: master
+#  provider: packagecloud
+#  repository: main
+#  username: twindb
+#  token:
+#    secure: UjT3+/FY+Xw++BbqEgA7pCTN6PIIjtddDiGTu02BsjZwlq0JbF2Qee2RWUoVvKJII+cKIxcZkS1ovySSM8SSGGL1UG3Yu7tbDNU6ayhSAcjmHhKefj8eYDZKfOrDncW6IB2pjQZnMzt5oFYYee5/Hp4N7rP++mBD5oftJ0iYoY1v/OOdkrOde0+tl5vV4u1HyhtmScYIQiuwj/DGggIGAXt3os1pyAkQVtyVvb3HcBMV9tBG5rX7hax/FYWqgGEQUOZHwmQhALcmXrSohqYuSiFyBSxX9cDQ8f8VHKabITu+guMpXVNxwBE7n/YjL3JaKii7163uj7mc/pSmfRRuuPyZab1Of2IndFosFm49f8mwN1076PdJVGjijv+KkGOX1asZ4yh7/lt4TTdPqcDBaEROzp/skBlsEFY01ZBeiTHRNGG9rPXglpUnKQXikMaGCwOz/xqXcq81PwTWzgWAoPN74XIk0GfwYwQGsorCZGk8vcwFzdMCcS5xyGLMEDHBEPp24vxG/1UbWBtpiOwU5JIOKpUbkl5meIgZDaXqd4vyvL9wRv7vUvNn5DkCkAh5w7Mp2ACYU34iJb2SVvazKFmRvebXSXFoCSBkFBvTGAqzJoCxhlYhgDjOaRwUPZNaKMy86iCzOQjn3g5WpKBUEvf+eMk0ZVLf3P9mAOTOcqI=
+#  dist: "${DISTRO}/${OS_VERSION}"
+#  skip_cleanup: true
+#  local-dir: omnibus-undrop-for-innodb/pkg/
