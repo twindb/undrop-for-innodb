@@ -1,9 +1,9 @@
 GIT
-  remote: git://github.com/twindb/omnibus-software.git
-  revision: 5e72226c026845578e106aa85609fcde3f6dbba7
+  remote: https://github.com/twindb/omnibus-software.git
+  revision: 5ea737b9a64e847812d4dd4b8512b4d479d0b8ae
   specs:
     omnibus-software (4.0.0)
-      chef-sugar (>= 3.4.0)
+      chef-sugar-ng (>= 5.0.0)
       omnibus (>= 5.6.1)
 
 GEM
@@ -68,6 +68,7 @@ GEM
       mixlib-shellout (>= 2.0, < 4.0)
       tomlrb (~> 1.2)
     chef-sugar (5.0.1)
+    chef-sugar-ng (5.0.4)
     citrus (3.0.2)
     cleanroom (1.0.0)
     dep-selector-libgecode (1.3.1)
@@ -179,7 +180,7 @@ GEM
       varia_model (~> 0.4.0)
     ruby-progressbar (1.10.0)
     rubyntlm (0.6.2)
-    rubyzip (1.2.2)
+    rubyzip (1.3.0)
     sawyer (0.6.0)
       addressable (~> 2.3.5)
       faraday (~> 0.8, < 0.10)
