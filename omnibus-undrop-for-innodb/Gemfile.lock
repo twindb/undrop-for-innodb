@@ -1,9 +1,8 @@
 GIT
-  remote: git://github.com/twindb/omnibus-software.git
-  revision: 5e72226c026845578e106aa85609fcde3f6dbba7
+  remote: https://github.com/twindb/omnibus-software.git
+  revision: 26582902c379d47259cf266ee238f4fa1ae9f5ba
   specs:
     omnibus-software (4.0.0)
-      chef-sugar (>= 3.4.0)
       omnibus (>= 5.6.1)
 
 GEM
@@ -91,7 +90,7 @@ GEM
     iostruct (0.0.4)
     ipaddress (0.8.3)
     jmespath (1.4.0)
-    json (2.2.0)
+    json (2.3.1)
     kitchen-vagrant (0.21.1)
       test-kitchen (~> 1.4)
     libyajl2 (1.2.0)
