@@ -16,6 +16,10 @@ The tool recovers data when backups are not available. It supports recovery from
 - InnoDB files were accidentally deleted.
 - A table was dropped and created empty one.
 ## Installation
+
+Undrop for InnoDB overview with installation instructions and demo.
+[![Undrop for InnoDB overview](https://img.youtube.com/vi/-1LeLhGjAWM/0.jpg)](https://www.youtube.com/watch?v=1LeLhGjAWM)
+
 The source code of the toolkit is hosted on GitHub. The tool has been developed on Linux, it’s known to work on CentOS 4,5,6,7, Debian, Ubuntu and Amazon Linux. Only 64 bit systems are supported.
 
 To best way to get the source code is to clone it from GitHub.
