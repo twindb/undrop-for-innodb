@@ -89,7 +89,7 @@ GEM
     httpclient (2.6.0.1)
     iostruct (0.0.4)
     ipaddress (0.8.3)
-    jmespath (1.4.0)
+    jmespath (1.6.2)
     json (2.3.1)
     kitchen-vagrant (0.21.1)
       test-kitchen (~> 1.4)
