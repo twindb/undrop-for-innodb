@@ -1,7 +1,17 @@
-#!/usr/bin/env bash
+#!/bin/sh
+#
+# Perform necessary undrop-for-innodb setup steps
+# after package is installed.
+#
 
-echo 'Thank you for installing UnDrop For InnoDB'
-set -x
+PROGNAME=`basename $0`
+
+error_exit()
+{
+  echo "${PROGNAME}: ${1:-"Unknown Error"}" 1>&2
+  exit 1
+}
+
 for ep in c_parser stream_parser
 do
     if ! test -L /usr/bin/${ep}
@@ -9,3 +19,7 @@ do
         ln -s "/opt/undrop-for-innodb/embedded/bin/${ep}" /usr/bin/${ep}
     fi
 done
+
+echo "Thank you for installing undrop-for-innodb!"
+
+exit 0

@@ -1,0 +1,17 @@
+#!/bin/sh
+#
+# Perform necessary undrop-for-innodb setup steps
+# prior to installing package.
+#
+
+PROGNAME=$(basename "$0")
+
+error_exit()
+{
+  echo "${PROGNAME}: ${1:-"Unknown Error"}" 1>&2
+  exit 1
+}
+
+find /opt/undrop-for-innodb/ -name .gitkeep -delete
+
+exit 0
