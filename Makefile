@@ -3,12 +3,14 @@ TARGETS = stream_parser c_parser innochecksum_changer
 SRCS = stream_parser.c include/mysql_def.h c_parser.c
 INC_PATH = -I./include
 LIBS = -pthread -lm
-BINDIR = ./bin
+BINDIR ?= ./bin
 
 CC ?= gcc
 INSTALL ?=install
 YACC = bison
 LEX = flex
+
+OS_VERSION ?= jammy
 
 CFLAGS += -D_FILE_OFFSET_BITS=64 -Wall -g -O3 -pipe -fgnu89-inline
 INSTALLFLAGS ?=-s
@@ -67,10 +69,27 @@ install: $(TARGETS)
 clean:
 	rm -f $(OBJECTS) $(TARGETS) lex.yy.c sql_parser.c sql_parser.output sys_parser
 	rm -f *.o *.core
+	rm -rf omnibus-undrop-for-innodb/pkg/
+
+package: ## Build package - OS_VERSION can be: focal, jammy.
+	@docker run \
+		-v $(shell pwd):/undrop-for-innodb \
+		--name builder_undrop \
+		--rm \
+		--env OS_VERSION=${OS_VERSION} \
+		"twindb/omnibus-ubuntu:${OS_VERSION}" \
+		bash -l /undrop-for-innodb/omnibus-undrop-for-innodb/omnibus_build.sh
+
 
 docker-start:
 	@docker run \
-        -v $(shell pwd):/undrop-for-innodb \
-        -it \
-        --rm \
-        centos:7 bash -l
+		-v $(shell pwd):/undrop-for-innodb \
+		-it \
+		--name builder_undrop \
+		--rm \
+		--dns 8.8.8.8 \
+		--dns 208.67.222.222 \
+		--env PLATFORM=${PLATFORM} \
+		--env OS_VERSION=${OS_VERSION} \
+		"twindb/omnibus-ubuntu:${OS_VERSION}" \
+		bash -l
