@@ -1,10 +1,17 @@
-#!/usr/bin/env bash
-set -x
+#!/bin/sh
+#
+# Perform necessary undrop-for-innodb removal steps
+# after package is uninstalled.
+#
 
-if [[ $1 == 0 ]]
+if [ "$1" = 0 ]
 then
     for ep in c_parser stream_parser
     do
         rm "/usr/bin/${ep}"
     done
 fi
+
+echo "undrop-for-innodb has been uninstalled!"
+
+exit 0
